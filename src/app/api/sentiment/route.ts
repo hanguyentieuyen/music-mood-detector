@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     // Analyze sentiment using Hugging Face
     const sentimentResults = (await hf.textClassification({
-      model: "cardiffnlp/twitter-roberta-base-sentiment-latest",
+      model: "distilbert-base-uncased-finetuned-sst-2-english",
       inputs: text,
     })) as SentimentResult[];
 

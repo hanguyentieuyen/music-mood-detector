@@ -149,29 +149,35 @@ async function getRecommendations(
   token: string,
   moodProfile: MoodProfile
 ): Promise<SpotifyTrack[]> {
-  const params = new URLSearchParams({
-    seed_genres: moodProfile.genres.slice(0, 2).join(","), // Max 2 genres
-    target_energy: moodProfile.energy.toString(),
-    target_valence: moodProfile.valence.toString(),
-    target_acousticness: moodProfile.acousticness.toString(),
-    target_danceability: moodProfile.danceability.toString(),
-    limit: "20",
-    market: "US",
-  });
+  try {
+    const params = new URLSearchParams({
+      seed_genres: moodProfile.genres.slice(0, 2).join(","),
+      target_energy: moodProfile.energy.toString(),
+      target_valence: moodProfile.valence.toString(),
+      target_acousticness: moodProfile.acousticness.toString(),
+      target_danceability: moodProfile.danceability.toString(),
+      limit: "20",
+      market: "US",
+    });
 
-  const response = await fetch(
-    `https://api.spotify.com/v1/recommendations?${params}`,
-    {
+    const url = `https://api.spotify.com/v1/recommendations?${params}`;
+    console.log("Spotify API URL:", url);
+
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text(); // lấy body lỗi nếu có
+      throw new Error(`Spotify API error: ${response.status} - ${errorText}`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Spotify API error: ${response.status}`);
+    const data = await response.json();
+    return data.tracks || [];
+  } catch (error) {
+    console.error("getRecommendations error:", error);
+    return []; // hoặc throw lại nếu muốn hiển thị lỗi rõ hơn
   }
-
-  const data = await response.json();
-  return data.tracks || [];
 }
