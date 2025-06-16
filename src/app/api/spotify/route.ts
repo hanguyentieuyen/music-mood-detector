@@ -1,5 +1,3 @@
-// src/app/api/spotify/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import type { MoodAnalysis, SpotifyTrack, MoodProfile } from "@/types";
 
@@ -10,7 +8,6 @@ export async function POST(req: NextRequest) {
   try {
     const { moodAnalysis }: { moodAnalysis: MoodAnalysis } = await req.json();
 
-    // Get Spotify access token
     const token = await getSpotifyToken();
     if (!token) {
       return NextResponse.json(
@@ -22,13 +19,23 @@ export async function POST(req: NextRequest) {
     // Map mood to Spotify audio features
     const moodProfile = mapMoodToSpotifyFeatures(moodAnalysis);
 
-    // Get recommendations
-    const tracks = await getRecommendations(token, moodProfile);
+    let tracks: SpotifyTrack[] = [];
+
+    tracks = await searchByMoodKeywords(token, moodProfile, moodAnalysis.mood);
+
+    if (tracks.length === 0) {
+      tracks = await getTracksFromMoodPlaylists(token, moodAnalysis.mood);
+    }
+
+    if (tracks.length === 0) {
+      tracks = await searchByGenre(token, moodProfile.genres);
+    }
 
     return NextResponse.json({
-      tracks,
+      tracks: tracks.slice(0, 20), // Limit to 20 tracks
       mood: moodAnalysis,
       timestamp: new Date().toISOString(),
+      source: tracks.length > 0 ? "success" : "no_tracks_found",
     });
   } catch (error) {
     console.error("Spotify API error:", error);
@@ -73,7 +80,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 function mapMoodToSpotifyFeatures(moodAnalysis: MoodAnalysis): MoodProfile {
-  const { mood, energy, valence } = moodAnalysis;
+  const { mood } = moodAnalysis;
 
   const moodProfiles: Record<string, MoodProfile> = {
     happy: {
@@ -145,23 +152,28 @@ function mapMoodToSpotifyFeatures(moodAnalysis: MoodAnalysis): MoodProfile {
   return moodProfiles[mood] || moodProfiles.chill;
 }
 
-async function getRecommendations(
+async function searchByMoodKeywords(
   token: string,
-  moodProfile: MoodProfile
+  moodProfile: MoodProfile,
+  mood: string
 ): Promise<SpotifyTrack[]> {
   try {
-    const params = new URLSearchParams({
-      seed_genres: moodProfile.genres.slice(0, 2).join(","),
-      target_energy: moodProfile.energy.toString(),
-      target_valence: moodProfile.valence.toString(),
-      target_acousticness: moodProfile.acousticness.toString(),
-      target_danceability: moodProfile.danceability.toString(),
-      limit: "20",
-      market: "US",
-    });
+    const moodKeywords = {
+      happy: "happy upbeat positive joy",
+      sad: "sad melancholy heartbreak emotional",
+      energetic: "energetic pump up motivation",
+      chill: "chill relax calm peaceful",
+      stressed: "calm relaxing soothing peaceful",
+      romantic: "romantic love smooth intimate",
+      workout: "workout gym motivation pump",
+      tired: "sleep calm quiet peaceful",
+    };
 
-    const url = `https://api.spotify.com/v1/recommendations?${params}`;
-    console.log("Spotify API URL:", url);
+    const keywords = moodKeywords[mood as keyof typeof moodKeywords] || "music";
+    const query = encodeURIComponent(keywords);
+    const url = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=50&market=US`;
+
+    console.log("Trying Search by Keywords:", url);
 
     const response = await fetch(url, {
       headers: {
@@ -170,14 +182,108 @@ async function getRecommendations(
     });
 
     if (!response.ok) {
-      const errorText = await response.text(); // lấy body lỗi nếu có
-      throw new Error(`Spotify API error: ${response.status} - ${errorText}`);
+      throw new Error(`Search API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.tracks || [];
+    return data.tracks?.items || [];
   } catch (error) {
-    console.error("getRecommendations error:", error);
-    return []; // hoặc throw lại nếu muốn hiển thị lỗi rõ hơn
+    console.error("searchByMoodKeywords error:", error);
+    return [];
+  }
+}
+
+async function getTracksFromMoodPlaylists(
+  token: string,
+  mood: string
+): Promise<SpotifyTrack[]> {
+  try {
+    const playlistKeywords = {
+      happy: "happy hits good vibes",
+      sad: "sad songs heartbreak",
+      energetic: "workout energy pump up",
+      chill: "chill indie coffee",
+      stressed: "calm meditation relaxing",
+      romantic: "romantic love songs",
+      workout: "workout gym fitness",
+      tired: "sleep sounds peaceful",
+    };
+
+    const keywords =
+      playlistKeywords[mood as keyof typeof playlistKeywords] || "music";
+    const query = encodeURIComponent(keywords);
+    const playlistUrl = `https://api.spotify.com/v1/search?q=${query}&type=playlist&limit=5&market=US`;
+
+    console.log("Searching for playlists:", playlistUrl);
+
+    const playlistResponse = await fetch(playlistUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!playlistResponse.ok) {
+      throw new Error(`Playlist search error: ${playlistResponse.status}`);
+    }
+
+    const playlistData = await playlistResponse.json();
+    const playlists = playlistData.playlists?.items || [];
+
+    if (playlists.length === 0) {
+      return [];
+    }
+
+    // Get tracks from the first playlist
+    const playlistId = playlists[0].id;
+    const tracksUrl = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=20&market=US`;
+
+    const tracksResponse = await fetch(tracksUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!tracksResponse.ok) {
+      throw new Error(`Playlist tracks error: ${tracksResponse.status}`);
+    }
+
+    const tracksData = await tracksResponse.json();
+    return (
+      tracksData.items
+        ?.map((item: any) => item.track)
+        .filter((track: any) => track) || []
+    );
+  } catch (error) {
+    console.error("getTracksFromMoodPlaylists error:", error);
+    return [];
+  }
+}
+
+async function searchByGenre(
+  token: string,
+  genres: string[]
+): Promise<SpotifyTrack[]> {
+  try {
+    const genre = genres[0] || "pop";
+    const query = encodeURIComponent(`genre:${genre}`);
+    const url = `https://api.spotify.com/v1/search?q=${query}&type=track&limit=20&market=US`;
+
+    console.log("Trying Genre Search:", url);
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Genre search error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.tracks?.items || [];
+  } catch (error) {
+    console.error("searchByGenre error:", error);
+    return [];
   }
 }
