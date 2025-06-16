@@ -1,38 +1,129 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎵 Music Mood Detector
 
-## Getting Started
+AI-powered music recommendation app that analyzes your mood and finds perfect songs from Spotify. Built with Next.js, Hugging Face AI, and Spotify API.
 
-First, run the development server:
+## ✨ Features
+
+- **AI Mood Analysis**: Uses Hugging Face's sentiment analysis to understand emotions
+- **Smart Music Matching**: Maps emotions to Spotify's audio features
+- **Quick Mood Buttons**: Pre-defined mood scenarios for instant results
+- **Preview Playback**: Listen to 30-second track previews
+- **Responsive Design**: Beautiful UI with shadcn/ui components
+- **Real-time Processing**: Fast mood detection and playlist generation
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+ and npm/yarn
+- Spotify Developer Account
+- Hugging Face Account (free)
+
+### 1. Clone & Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <your-repo>
+cd music-mood-detector
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Spotify API (Required)
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 
-## Learn More
+# Hugging Face API (Required)
+NEXT_PUBLIC_HUGGINGFACE_API_KEY=your_hf_token
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Get API Keys
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+#### Spotify API Setup:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create new app with these settings:
+   - **Redirect URI**: `http://localhost:3000/api/auth/callback/spotify`
+   - **APIs**: Web API
+3. Copy Client ID and Client Secret
 
-## Deploy on Vercel
+#### Hugging Face Setup:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Create account at [Hugging Face](https://huggingface.co/join)
+2. Go to Settings → Access Tokens
+3. Create token with "Read" access
+4. Copy the token
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+When prompted, choose:
 
-# music-mood-detector
+- Style: **Default**
+- Base color: **Slate**
+- CSS variables: **Yes**
+
+### 4. Run Development Server
+
+```bash
+npm install && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## 🛠️ Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── sentiment/route.ts    # Hugging Face sentiment analysis
+│   │   └── spotify/route.ts      # Spotify recommendations
+│   ├── components/
+│   │   ├── MoodInput.tsx         # User input interface
+│   │   └── PlaylistDisplay.tsx   # Results display
+│   ├── types/index.ts            # TypeScript definitions
+│   ├── globals.css               # Global styles
+│   ├── layout.tsx                # App layout
+│   └── page.tsx                  # Main page
+```
+
+## 🧠 How It Works
+
+1. **Mood Detection**: User input → Hugging Face sentiment analysis
+2. **Feature Mapping**: Emotions → Spotify audio features (energy, valence, etc.)
+3. **Music Search**: Spotify API finds matching tracks
+4. **Results**: Display playlist with preview playback
+
+## 🎯 Mood Mapping
+
+| Mood      | Energy | Valence | Genres                         |
+| --------- | ------ | ------- | ------------------------------ |
+| Happy     | 0.8    | 0.9     | Pop, Dance, Funk               |
+| Sad       | 0.3    | 0.2     | Indie, Acoustic, Folk          |
+| Energetic | 0.95   | 0.8     | Rock, Electronic, Metal        |
+| Chill     | 0.4    | 0.6     | Ambient, Lo-fi, Indie-pop      |
+| Stressed  | 0.2    | 0.6     | Ambient, Classical, Meditation |
+| Romantic  | 0.4    | 0.8     | R&B, Soul, Jazz                |
+| Workout   | 0.95   | 0.8     | EDM, Hip-hop, Electronic       |
+
+## 🔧 Customization
+
+### Adding New Moods
+
+1. Update `mapSentimentToMood()` in `src/app/api/sentiment/route.ts`
+2. Add mood profile in `mapMoodToSpotifyFeatures()` in `src/app/api/spotify/route.ts`
+3. Update icons/colors in `PlaylistDisplay.tsx`
+
+### Changing AI Model
+
+Replace Hugging Face model in `src/app/api/sentiment/route.ts`:
+
+```typescript
+const sentimentResults = await hf.textClassification({
+  model: "your-preferred-model", // e.g., 'nlptown/bert-base-multilingual-uncased-sentiment'
+  inputs: text,
+});
+```
+
+Built with ❤️ using Next.js, Hugging Face AI, and Spotify API
